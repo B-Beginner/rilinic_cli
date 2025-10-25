@@ -1,0 +1,9 @@
+
+# env file
+.env
+.venv
+
+
+# ide
+.idea/
+
