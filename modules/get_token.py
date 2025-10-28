@@ -1,20 +1,18 @@
 import requests  # type: ignore
 
-from .read_env import BASE_URL, load_credentials
+from .read_env import BASE_URL, USERNAME, PASSWORD
 
 
 def get_token() -> str:
     """
     based on https://fox.oplist.org.cn/364155678e0
     """
-    username, password = load_credentials()
-
     # Using json= so requests sets appropriate header
     resp = requests.post(
-        BASE_URL + "api/auth/login",
+        BASE_URL.rstrip("/") + "/api/auth/login",
         json={
-            "username": username,
-            "password": password,
+            "username": USERNAME,
+            "password": PASSWORD,
             # "otp_code": "123456",
         },
     )

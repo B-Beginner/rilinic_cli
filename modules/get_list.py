@@ -1,6 +1,6 @@
 import requests  # type: ignore
 
-from .read_env import BASE_URL, load_credentials
+from .read_env import BASE_URL, USERNAME, PASSWORD
 
 
 def get_list(token: str, path: str = "/data") -> list[dict]:
@@ -9,14 +9,12 @@ def get_list(token: str, path: str = "/data") -> list[dict]:
     """
     headers = {"Authorization": token.strip()}
 
-    _, password = load_credentials()
 
     response = requests.post(
-        BASE_URL + "api/fs/list",
+        BASE_URL.rstrip("/") + "/api/fs/list",
         headers=headers,
         json={
             "path": path,
-            "password": password,
         },
     )
     response.raise_for_status()
