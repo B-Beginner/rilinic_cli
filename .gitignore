@@ -7,3 +7,6 @@
 # ide
 .idea/
 
+
+# build file
+__pycache__/
