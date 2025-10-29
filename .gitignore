@@ -10,3 +10,7 @@
 
 # build file
 __pycache__/
+downloads/
+
+# test file
+test.ipynb

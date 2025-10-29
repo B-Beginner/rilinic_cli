@@ -15,38 +15,37 @@ def get_file_info(token: str, path: str = "/data") -> dict:
 	
 	# 获取最后一个文件
 	last_item = file_list[-1]
-	filename = last_item.get("name", "")
+	file_name = last_item.get("name", "")
 	file_path = last_item.get("path", "")
 	modified = last_item.get("modified", "")
 	
-	print(f"选中的文件: {filename}")
+	print(f"选中的文件: {file_name}")
 	print(f"文件路径: {file_path}")
 	print(f"修改时间: {modified}\n")
 	
 	# 调用 /api/fs/get API
-	url = BASE_URL.rstrip("/") + "/api/fs/get"
+	url = BASE_URL.rstrip("/") + "/api/fs/get/"
 	
 	headers = {
 		'Authorization': token.strip(),
 		'Content-Type': 'application/json'
 	}
-	
+
 	payload = {
-		"path": file_path,
-		"password": PASSWORD
+		"path": 'data/'+file_name
 	}
-	
+	print("api请求路径:", payload)
 	response = requests.post(url, headers=headers, json=payload)
 	response.raise_for_status()
-	
-	print("API 响应:")
-	print(response.text)
+
+	print("API 响应:", response.text)
+
 	
 	return response.json()
 
 
-if __name__ == "__main__":
-	# 用于测试
-	from .get_token import get_token
-	token = get_token()
-	get_file_info(token)
+# if __name__ == "__main__":
+# 	# 用于测试
+# 	from .get_token import get_token
+# 	token = get_token()
+# 	get_file_info(token)

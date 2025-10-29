@@ -1,86 +1,93 @@
-from __future__ import annotations
-
+from .get_file_info import get_file_info
+import requests
 from pathlib import Path
-from typing import Optional, Tuple
-import os
 import platform
-
-import requests  # type: ignore
-
-from .read_env import BASE_URL
-from .get_list import get_list
+import os
+from typing import Optional
 
 
-def download_file(token: str, file_path: str, dest_dir: str | Path | None = None) -> Path:
 
-	# OpenList raw download path uses "/d/" prefix
-	url = BASE_URL.rstrip("/") + "/d/" + file_path.lstrip("/")
+
+
+def download_file(token: str, path: str = "/data", save_dir: Optional[str] = None) -> str:
+	# 获取文件信息
+	response = get_file_info(token, path)
 	
-	headers = {"Authorization": token.strip()}
+	# 打印完整的响应数据以便调试
+	# print(f"\n完整响应数据: {response}")
+	# print(f"响应数据的键: {response.keys()}")
+	
+	def _default_download_dir() -> Path:
+		"""根据操作系统返回默认的下载目录。
+		- macOS: ~/Downloads
+		- Windows: %USERPROFILE%/Downloads (回退到 Path.home()/Downloads)
+		"""
+		system = platform.system()
+		home = Path.home()
 
-	if dest_dir is None:
-		# 按操作系统选择默认下载目录
-		if platform.system() == "Windows":
-			# Windows: 通常位于 %USERPROFILE%\Downloads
-			user_home = Path(os.environ.get("USERPROFILE", str(Path.home())))
-			dest_root = user_home / "Downloads"
+		if system == "Darwin":
+			return home / "Downloads"
+		elif system == "Windows":
+			userprofile = os.environ.get("USERPROFILE")
+			base = Path(userprofile) if userprofile else home
+			return base / "Downloads"
 		else:
-			# macOS/Linux: ~/Downloads
-			dest_root = Path.home() / "Downloads"
-	else:
-		dest_root = Path(dest_dir)
-	dest_root.mkdir(parents=True, exist_ok=True)
+			return ('暂不支持macOS、Windows以外的系统')
 
-	filename = Path(file_path).name
-	dest_path = dest_root / filename
+	# 尝试从响应的 data 字段中获取信息
+	data = response.get("data", {})
+	
+	file_name = data.get("name") 
+	raw_url = data.get("raw_url")
+	
 
-	with requests.get(url, headers=headers, stream=True) as r:
-		r.raise_for_status()
-		with open(dest_path, "wb") as f:
-			for chunk in r.iter_content(chunk_size=1024 * 256):  # 256KB chunks
-				if not chunk:
-					continue
-				f.write(chunk)
-
-	return dest_path
-
-
-def _parse_version(name: str) -> Optional[Tuple[int, int, int]]:
-	"""Parse 'vMAJOR.MINOR.PATCH' from beginning of name.
-
-	Examples: 'v1.2.3-20250101.zip' -> (1,2,3)
+	print(f"\n开始下载文件: {file_name}")
+	print(f"下载链接: {raw_url}")
+	
 	"""
-	if not name or not name.startswith("v"):
-		return None
-	try:
-		ver_part = name[1:].split("-", 1)[0]
-		major_s, minor_s, patch_s = ver_part.split(".")
-		return int(major_s), int(minor_s), int(patch_s)
-	except Exception:
-		return None
+	下面的代码测试使用，暂时不需要开启
+	"""
+	# if not raw_url:
+	# 	raise RuntimeError("响应中未找到 raw_url")
+	# if not file_name:
+	# 	raise RuntimeError("响应中未找到文件名")
 
+	# 解析保存目录（默认使用系统下载目录）
+	if save_dir is None or str(save_dir).strip() == "":
+		save_path = _default_download_dir()
+	else:
+		save_path = Path(save_dir)
+	
+	# 创建保存目录（如果不存在）
+	save_path.mkdir(parents=True, exist_ok=True)
+	
+	# 完整的文件保存路径
+	file_path = save_path / file_name
+	# 创建保存目录
+	print(f"正在下载到: {file_path}")
+	
+	with requests.get(raw_url, stream=True) as r:
+		r.raise_for_status()
+		
+		# 获取文件大小
+		total_size = int(r.headers.get('content-length', 0))
+		
+		# 写入文件
+		downloaded = 0
+		chunk_size = 8192
+		
+		with open(file_path, 'wb') as f:
+			for chunk in r.iter_content(chunk_size=chunk_size):
+				if chunk:
+					f.write(chunk)
+					downloaded += len(chunk)
+					
+					# 显示下载进度
+					if total_size > 0:
+						progress = (downloaded / total_size) * 100
+						print(f"\r下载进度: {progress:.1f}% ({downloaded}/{total_size} bytes)", end='')
+	
+	print(f"\n\n文件下载完成: {file_path}")
+	return str(file_path)
 
-def download_latest(token: str, path: str = "/data", dest_dir: str | Path | None = None) -> tuple[Path, dict]:
-
-	content = get_list(token, path=path)
-	best_item: Optional[dict] = None
-	best_ver: Optional[Tuple[int, int, int]] = None
-	for item in content:
-		name = (item.get("name") or "").strip()
-		ver = _parse_version(name)
-		if ver is None:
-			continue
-		if best_ver is None or ver > best_ver:
-			best_ver = ver
-			best_item = item
-
-	if not best_item:
-		raise RuntimeError("列表中未找到符合 vMAJOR.MINOR.PATCH 的文件，无法选择最新版本。")
-
-	file_path = best_item.get("path")
-	if not isinstance(file_path, str) or not file_path:
-		raise RuntimeError("选中的条目缺少有效的路径字段 'path'")
-
-	saved = download_file(token, file_path, dest_dir=dest_dir)
-	return saved, best_item
 

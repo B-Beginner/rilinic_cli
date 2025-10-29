@@ -1,7 +1,8 @@
 from modules.get_token import get_token
-from modules.download_file import download_latest
-from modules.get_list import get_list
 
+from modules.get_list import get_list
+from modules.get_file_info import get_file_info
+from modules.download_file import download_file
 
 def main() -> None:
     token = get_token()
@@ -12,7 +13,8 @@ def main() -> None:
     # 输出文件名、路径、修改时间
     for item in content:
         print(f"{item.get('name')}\t{item.get('path')}\t{item.get('modified')}")
-    download_latest(token)
+    get_file_info(token, path="/data")
+    download_file(token, path="/data")
 
 if __name__ == "__main__":
     main()
